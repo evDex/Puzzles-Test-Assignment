@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Цифровий пазл</title>
+<style>
+  * 
+  { 
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  body 
+  { 
+    font-family: system-ui, sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 32px 16px;
+    background: #f8f9fa;
+    color: #212529;
+    box-sizing: border-box;
+  }
+  textarea 
+  { 
+    width: 100%; 
+    height: 120px; 
+    font-size: 14px; 
+    padding: 8px; 
+    resize: vertical; 
+  }
+  #out 
+  { 
+    width: 100%; 
+    word-break: break-all; 
+    margin-top: 16px; 
+    padding: 12px; 
+    background: #fff; 
+    border: 1px solid #dee2e6; 
+    border-radius: 4px; 
+    white-space: pre-wrap; 
+    min-height: 60px; 
+  }
+  .controls 
+  { 
+    display: flex; 
+    flex-wrap: wrap; 
+    margin: 16px 0; 
+    gap: 16px; 
+    
+  }
+  .controls label 
+  { 
+    font-weight: 600; 
+    font-size: 14px; 
+  }
+  input[type=number] 
+  { 
+    width: 80px; 
+    padding: 4px 8px; 
+    border: 1px solid #ced4da; 
+    border-radius: 4px; 
+  }
+  button 
+  { 
+    padding: 8px 20px; 
+    background: #0d6efd; 
+    color: #fff; 
+    border: none; 
+    border-radius: 4px; 
+    font-size: 16px; 
+    cursor: pointer; 
+  }
+  button:hover 
+  { 
+    background: #0b5ed7; 
+  }
+  button:disabled 
+  { 
+    background: #6c757d; 
+    cursor: not-allowed; 
+  }
+  #cancelBtn 
+  { 
+    background: #dc3545; 
+    display: none; 
+  }
+  #cancelBtn:hover 
+  { 
+    background: #bb2d3b; 
+  }
+  .info 
+  { 
+    color: #6c757d; 
+    font-size: 13px; 
+    margin-top: 8px; 
+  }
+  .in-info 
+  {
+    display:none; 
+    color:#dc3545; 
+    font-weight:600; 
+    font-size:13px; 
+    margin-top: 8px;
+  }
+  .warning 
+  { 
+    color: #dc3545; 
+    font-weight: 600; 
+  }
+  .valid-data 
+  {
+    color: #dc3545;
+    display: none;
+    font-weight: 600; 
+    font-size:13px; 
+    margin:-8px 0 16px;
+  }
+  .ok 
+  { 
+    color: #198754; 
+    font-weight: 600; 
+  }
+  .progress-container 
+  { 
+    margin: 16px 0; 
+    display: none; 
+  }
+  .progress-info 
+  { 
+    display: flex; 
+    justify-content: space-between; 
+    font-size: 13px; 
+    color: #495057; 
+    margin-bottom: 4px; 
+  }
+  .progress-bar-bg 
+  { 
+    width: 100%; 
+    height: 20px; 
+    background: #e9ecef; 
+    border-radius: 10px; 
+    overflow: hidden; 
+  }
+  .progress-bar-fill 
+  { 
+    height: 100%; 
+    width: 0%; 
+    background: linear-gradient(90deg, #0d6efd, #0dcaf0); 
+    transition: width 0.1s ease; 
+    
+  }
+  .stats 
+  { 
+    font-size: 12px; 
+    color: #6c757d; 
+    margin-top: 4px; 
+  }
+
+</style>
+</head>
+<body>
+<h2>🧩 Найбільший однорядний цифровий пазл</h2>
+
+<div class="controls">
+  <label>Розмір пазла (цифр):
+    <input type="number" id="puzzleSize" value="0" min="0" max="30">
+  </label>
+
+  <label>Цифр з'єднання:
+    <input type="number" id="joinSize" value="2" min="1" max="5">
+  </label>
+
+  <label>Час пошуку (мс):
+    <input type="number" id="timeLimit" value="30000" min="1000" max="600000" step="1000">
+  </label>
+
+  <button id="go">Скласти пазл</button>
+  <button id="cancelBtn">Відміна</button>
+</div>
+
+<div class="controls">
+  <label>📁 Завантажити файл:
+    <input type="file" id="fileInput" accept=".txt,.csv">
+  </label>
+</div>
+<div id="fileError" class="valid-data"></div>
+
+<textarea id="in" placeholder="Вставте сюди фрагменти через кому, пробіл або з нового рядка...">608017, 248460, 962282, 994725, 177092</textarea>
+<div id="inInfo" class="in-info "></div>
+<div class="info">
+  Фрагменти — рядки цифр. З'єднання: останні N цифр одного = перші N цифр наступного (N = цифр з'єднання).<br>
+  <b>Розмір пазла</b> — довжина кожного фрагмента; <b>0</b> — вимкнути фільтр за розміром.
+</div>
+
+<div class="progress-container" id="progressContainer">
+  <div class="progress-info">
+    <span>🔄 Пошук рішення...</span>
+    <span id="callsDisplay">Перевірено варіантів: 0</span>
+  </div>
+
+  <div class="progress-bar-bg">
+    <div class="progress-bar-fill" id="progressBar"></div>
+  </div>
+
+  <div class="stats" id="statsDisplay">Час: 0.0с</div>
+</div>
+
+<div id="out"></div>
+
+<script>
+  let cancelFlag = false;
+  const SEP = /[\s,;]+/;
+  const DIGITS_ONLY = /^\d+$/;
+
+function* solveGen(fragments, joinK, timeLimitMs) {
+  const n = fragments.length;
+  if (n === 0) return { best: "", chain: [], timedOut: false, cancelled: false, calls: 0, filtered: 0 };
+
+  const frags = fragments.filter(p => p.length > joinK);
+  const filtered = fragments.length - frags.length;
+  if (frags.length === 0) return { best: "", chain: [], timedOut: false, cancelled: false, calls: 0, filtered };
+
+  const m = frags.length;
+  const used = new Array(m).fill(false);
+
+  const startKey = frags.map(p => p.slice(0, joinK));
+  const endKey   = frags.map(p => p.slice(-joinK));
+  const gain     = frags.map(p => p.length - joinK);
+  const tailAdd  = frags.map(p => p.slice(joinK));
+
+  const byStart = new Map();
+  frags.forEach((_, i) => {
+    const key = startKey[i];
+    if (!byStart.has(key)) byStart.set(key, []);
+    byStart.get(key).push(i);
+  });
+
+  let best = "";
+  let bestLen = 0;
+  let bestChain = [];
+  let calls = 0;
+  let timedOut = false;
+  let cancelled = false;
+  const t0 = performance.now();
+  let lastYield = t0;
+
+  const chainArr = [];
+
+  const order = frags.map((_, i) => i).sort((a, b) => frags[b].length - frags[a].length);
+
+  function maxTailGain(tail) {
+    const seen = new Set([tail]);
+    const stack = [tail];
+    let sum = 0;
+    while (stack.length) {
+      const v = stack.pop();
+      const list = byStart.get(v);
+      if (!list) continue;
+      for (let k = 0; k < list.length; k++) {
+        const i = list[k];
+        if (used[i]) continue;
+        sum += gain[i];
+        const t = endKey[i];
+        if (!seen.has(t)) { seen.add(t); stack.push(t); }
+      }
+    }
+    return sum;
+  }
+
+  function buildString(chain) {
+    if (chain.length === 0) return "";
+    let s = frags[chain[0]];
+    for (let k = 1; k < chain.length; k++) s += tailAdd[chain[k]];
+    return s;
+  }
+
+  function* dfs(curLen, tail) {
+    if (curLen > bestLen) {
+      bestLen = curLen;
+      bestChain = chainArr.slice();
+      best = buildString(bestChain);
+    }
+
+    calls++;
+    if ((calls & 255) === 0) {
+      const now = performance.now();
+      if (now - t0 > timeLimitMs) { timedOut = true; return; }
+      if (cancelFlag) { cancelled = true; return; }
+      if (now - lastYield > 30) {
+        lastYield = now;
+        yield { calls, elapsed: now - t0 };
+      }
+    }
+
+    if (curLen + maxTailGain(tail) < bestLen) return;
+
+    const candidates = byStart.get(tail);
+    if (!candidates) return;
+
+    const tried = new Set();
+    for (let k = 0; k < candidates.length; k++) {
+      const i = candidates[k];
+      if (used[i]) continue;
+      const p = frags[i];
+      if (tried.has(p)) continue;
+      tried.add(p);
+
+      used[i] = true;
+      chainArr.push(i);
+      yield* dfs(curLen + gain[i], endKey[i]);
+      chainArr.pop();
+      used[i] = false;
+
+      if (timedOut || cancelled) return;
+    }
+  }
+
+  for (let oi = 0; oi < order.length; oi++) {
+    if (timedOut || cancelled) break;
+    const i = order[oi];
+    used[i] = true;
+    chainArr.push(i);
+    yield* dfs(frags[i].length, endKey[i]);
+    chainArr.pop();
+    used[i] = false;
+  }
+
+  return {
+    best,
+    chain: bestChain.map(idx => frags[idx]),
+    timedOut,
+    cancelled,
+    calls,
+    filtered
+  };
+}
+
+const fileErrorEl = document.getElementById('fileError');
+
+function showFileError(msg) {
+  fileErrorEl.textContent = msg;
+  fileErrorEl.style.display = 'block';
+  document.getElementById('fileInput').value = '';
+}
+
+function clearFileError() {
+  fileErrorEl.textContent = '';
+  fileErrorEl.style.display = 'none';
+}
+
+const inInfoEl = document.getElementById('inInfo');
+
+function updateInInfo() {
+  const raw = document.getElementById('in').value;
+  const allStr = raw.split(SEP).filter(s => s.length > 0);
+  const noNumbers = allStr.filter(t => !DIGITS_ONLY.test(t));
+
+  if (noNumbers.length === 0) {
+    inInfoEl.style.display = 'none';
+    inInfoEl.textContent = '';
+    return;
+  }
+
+  const sample = noNumbers.slice(0, 3)
+    .map(t => t.length > 20 ? t.slice(0, 20) + '…' : t)
+    .join(', ');
+  const tail = noNumbers.length > 3 ? ` та ще ${noNumbers.length - 3}` : '';
+  inInfoEl.textContent =
+    `⚠ ${noNumbers.length} ${noNumbers.length === 1 ? 'строк не є числом' : 'строк не є числами'} ` +
+    `(${sample}${tail}). Вони будуть проігноровані при розв'язанні.`;
+  inInfoEl.style.display = 'block';
+}
+
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  clearFileError();
+
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onerror = () => {
+    showFileError('✗ Не вдалося прочитати файл');
+  };
+
+  reader.onload = ev => {
+    const text = String(ev.target.result);
+    const str = text.split(SEP).filter(s => s.length > 0);
+
+    if (str.length === 0) {
+      showFileError('✗ Файл порожній або не містить фрагментів');
+      return;
+    }
+
+    const noNumbers = str.filter(t => !DIGITS_ONLY.test(t));
+    if (noNumbers.length > 0) {
+      const sample = noNumbers.slice(0, 3)
+        .map(t => t.length > 20 ? t.slice(0, 20) + '…' : t)
+        .join(', ');
+      const tail = noNumbers.length > 3 ? ` та ще ${noNumbers.length - 3}` : '';
+      showFileError(
+        `✗ Файл містить ${noNumbers.length} не-цифрових пазли із ${str.length} ` +
+        `(${sample}${tail}). Файл не завантажено.`
+      );
+      return;
+    }
+
+    document.getElementById('in').value = text;
+    updateInInfo();
+    document.getElementById('fileInput').value = '';
+  };
+
+  reader.readAsText(file);
+});
+
+document.getElementById('in').addEventListener('input', updateInInfo);
+
+
+document.getElementById('cancelBtn').onclick = () => { cancelFlag = true; };
+
+document.getElementById('go').onclick = async function() {
+  const puzzleSize = Math.max(0, parseInt(document.getElementById('puzzleSize').value, 10) || 0);
+  const joinK      = Math.max(1, parseInt(document.getElementById('joinSize').value, 10)    || 2);
+  const timeLimit  = Math.max(1000, parseInt(document.getElementById('timeLimit').value, 10) || 30000);
+
+  const raw = document.getElementById('in').value;
+  const allStr= raw.split(SEP).filter(s => s.length > 0);
+  let fragments = allStr.filter(s => DIGITS_ONLY.test(s));
+  const badStr = allStr.length - fragments.length;
+
+  let sizeFiltered = 0;
+  if (puzzleSize > 0) {
+    const before = fragments.length;
+    fragments = fragments.filter(f => f.length === puzzleSize);
+    sizeFiltered = before - fragments.length;
+  }
+
+  const goBtn = document.getElementById('go');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const progressContainer = document.getElementById('progressContainer');
+  const progressBar = document.getElementById('progressBar');
+  const callsDisplay = document.getElementById('callsDisplay');
+  const statsDisplay = document.getElementById('statsDisplay');
+  const out = document.getElementById('out');
+
+  goBtn.disabled = true;
+  cancelBtn.style.display = 'inline-block';
+  progressContainer.style.display = 'block';
+  out.textContent = '';
+  cancelFlag = false;
+
+  const t0 = performance.now();
+  const gen = solveGen(fragments, joinK, timeLimit);
+  let result = gen.next();
+  let lastUpdate = 0;
+
+  while (!result.done) {
+    const now = performance.now();
+    if (now - lastUpdate > 60) {
+      const value = result.value || {};
+      callsDisplay.textContent = 'Перевірено варіантів: ' + (value.calls || 0).toLocaleString();
+      const elapsed = (now - t0) / 1000;
+      const pct = Math.min(100, (elapsed / (timeLimit / 1000)) * 100);
+      progressBar.style.width = pct + '%';
+      statsDisplay.textContent = 'Час: ' + elapsed.toFixed(1) + 'с / ' + (timeLimit / 1000).toFixed(1) + 'с';
+      lastUpdate = now;
+    }
+    result = gen.next();
+    await new Promise(r => setTimeout(r, 0));
+  }
+
+  const elapsed = (performance.now() - t0) / 1000;
+  progressBar.style.width = '100%';
+  const res = result.value || {};
+  callsDisplay.textContent = 'Перевірено варіантів: ' + (res.calls || 0).toLocaleString();
+  statsDisplay.textContent = 'Час: ' + elapsed.toFixed(1) + 'с';
+  goBtn.disabled = false;
+  cancelBtn.style.display = 'none';
+
+  let output = '';
+  if (badStr > 0) output += '⚠️ Пропущено не-цифрових строк: ' + badStr + '\n';
+  if (sizeFiltered > 0) output += '⚠️ Відфільтровано за розміром (' + puzzleSize + '): ' + sizeFiltered + '\n';
+  if (res.filtered > 0) output += '⚠️ Відфільтровано за joinK (' + joinK + '): ' + res.filtered + '\n';
+  output += '📊 Фрагментів у роботі: ' + fragments.length + '\n';
+  output += '🔗 Цифр з’єднання: ' + joinK + '\n';
+  output += '🔄 Перевірено варіантів: ' + (res.calls || 0).toLocaleString() + '\n';
+  output += '⏱️ Час: ' + elapsed.toFixed(1) + 'с\n';
+
+  if (res.cancelled) output += '❌ Пошук скасовано користувачем (повернуто найкращий знайдений результат)\n';
+  if (res.timedOut) {
+    output += '⚠️ <span class="warning">Досягнуто ліміту часу — оптимальність НЕ доведена.</span>\n';
+  } else if (!res.cancelled) {
+    output += '✅ <span class="ok">Пошук завершився сам — знайдено оптимум.</span>\n';
+  }
+
+  output += '\n✅ Ланцюжок (' + (res.chain ? res.chain.length : 0) + ' фрагментів):\n';
+  output += (res.chain ? res.chain.join(' → ') : '') + '\n';
+  output += '\n🏆 Результат:\n' + (res.best || 'Немає фрагментів');
+
+  out.innerHTML = output;
+};
+</script>
+</body>
+</html>
